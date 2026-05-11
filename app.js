@@ -182,6 +182,7 @@ function updateProgress() {
 
 function birdCard(bird) {
   const record = recordFor(bird.id);
+  const examplePhoto = EXAMPLE_PHOTOS[bird.id];
   const card = document.createElement("article");
   card.className = `bird-card${record.seen ? " seen" : ""}`;
 
@@ -215,6 +216,15 @@ function birdCard(bird) {
   if (state.partner && partnerRecordFor(bird.id).photoPath) badges.append(badge("Partnerfoto", "partner"));
   if (EXAMPLE_PHOTOS[bird.id]) badges.append(badge("Voorbeeldfoto"));
   content.append(badges);
+
+  if ((record.photo || record.photoUrl || examplePhoto?.url) && !record.photoPath) {
+    const thumb = document.createElement("img");
+    thumb.className = "bird-thumb";
+    thumb.loading = "lazy";
+    thumb.alt = "";
+    thumb.src = record.photo || record.photoUrl || examplePhoto.url;
+    content.prepend(thumb);
+  }
 
   const details = document.createElement("button");
   details.className = "details-button";
@@ -309,6 +319,7 @@ function showExamplePhoto(photo) {
   els.examplePreview.src = photo.url;
   els.examplePhotoBlock.hidden = false;
   els.exampleCredit.href = photo.sourceUrl;
+  els.exampleCredit.hidden = false;
   els.exampleCredit.textContent = photo.artist
     ? `Voorbeeldfoto: ${photo.artist} · ${photo.license}`
     : `Voorbeeldfoto: Wikimedia Commons · ${photo.license}`;

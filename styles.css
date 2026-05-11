@@ -257,6 +257,15 @@ textarea {
   font-size: 1rem;
 }
 
+.bird-thumb {
+  width: 100%;
+  height: 138px;
+  margin-bottom: 10px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #edf3f8;
+}
+
 .bird-card p {
   color: var(--muted);
   font-size: 0.84rem;
@@ -423,6 +432,14 @@ dialog::backdrop {
 }
 
 .example-photo a {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fbfcfb;
   color: var(--water);
   font-size: 0.78rem;
   font-weight: 800;
