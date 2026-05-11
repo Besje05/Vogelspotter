@@ -396,7 +396,11 @@ function importData(file) {
 }
 
 function hasSupabaseConfig() {
-  return SUPABASE_URL.startsWith("https://") && SUPABASE_ANON_KEY.length > 20;
+  return cleanSupabaseUrl().startsWith("https://") && SUPABASE_ANON_KEY.length > 20;
+}
+
+function cleanSupabaseUrl() {
+  return SUPABASE_URL.trim().replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");
 }
 
 function setSyncStatus(message) {
@@ -436,7 +440,7 @@ async function initSupabase() {
 
   try {
     const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
-    state.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    state.supabase = createClient(cleanSupabaseUrl(), SUPABASE_ANON_KEY);
     const { data } = await state.supabase.auth.getSession();
     state.session = data.session;
     await refreshAuthState();
