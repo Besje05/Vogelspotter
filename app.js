@@ -404,6 +404,10 @@ function cleanSupabaseUrl() {
   return supabaseUrl.trim().replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");
 }
 
+function appRedirectUrl() {
+  return window.location.href.split("#")[0].split("?")[0];
+}
+
 async function loadSupabaseConfig() {
   try {
     const config = await import(`./supabase-config.js?v=${Date.now()}`);
@@ -711,7 +715,13 @@ function bindEvents() {
     }
     const email = els.authEmail.value.trim();
     const password = els.authPassword.value;
-    const { error } = await state.supabase.auth.signUp({ email, password });
+    const { error } = await state.supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: appRedirectUrl()
+      }
+    });
     if (error) {
       alert(`${error.message}\n\nSupabase URL gebruikt door de app:\n${cleanSupabaseUrl()}`);
       return;
