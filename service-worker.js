@@ -1,10 +1,9 @@
-const CACHE_NAME = "vogelverzamelaar-v5";
+const CACHE_NAME = "vogelverzamelaar-v6";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
-  "./supabase-config.js",
   "./data/birds.js",
   "./manifest.webmanifest",
   "./icons/bird.svg",
@@ -30,6 +29,11 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+
+  if (new URL(event.request.url).pathname.endsWith("/supabase-config.js")) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
 
   if (event.request.mode === "navigate") {
     event.respondWith(

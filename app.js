@@ -1,10 +1,11 @@
 import { BIRDS } from "./data/birds.js";
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./supabase-config.js";
 
 const STORAGE_KEY = "vogelverzamelaar.records.v1";
 const DB_NAME = "vogelverzamelaar-db";
 const STORE_NAME = "records";
 const PHOTO_BUCKET = "bird-photos";
+let supabaseUrl = "";
+let supabaseAnonKey = "";
 
 const state = {
   records: {},
@@ -396,11 +397,22 @@ function importData(file) {
 }
 
 function hasSupabaseConfig() {
-  return cleanSupabaseUrl().startsWith("https://") && SUPABASE_ANON_KEY.length > 20;
+  return cleanSupabaseUrl().startsWith("https://") && supabaseAnonKey.length > 20;
 }
 
 function cleanSupabaseUrl() {
-  return SUPABASE_URL.trim().replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");
+  return supabaseUrl.trim().replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");
+}
+
+async function loadSupabaseConfig() {
+  try {
+    const config = await import(`./supabase-config.js?v=${Date.now()}`);
+    supabaseUrl = config.SUPABASE_URL || "";
+    supabaseAnonKey = config.SUPABASE_ANON_KEY || "";
+  } catch {
+    supabaseUrl = "";
+    supabaseAnonKey = "";
+  }
 }
 
 function setSyncStatus(message) {
@@ -440,7 +452,7 @@ async function initSupabase() {
 
   try {
     const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
-    state.supabase = createClient(cleanSupabaseUrl(), SUPABASE_ANON_KEY);
+    state.supabase = createClient(cleanSupabaseUrl(), supabaseAnonKey);
     const { data } = await state.supabase.auth.getSession();
     state.session = data.session;
     await refreshAuthState();
@@ -689,7 +701,7 @@ function bindEvents() {
     const email = els.authEmail.value.trim();
     const password = els.authPassword.value;
     const { error } = await state.supabase.auth.signInWithPassword({ email, password });
-    if (error) alert(error.message);
+    if (error) alert(`${error.message}\n\nSupabase URL gebruikt door de app:\n${cleanSupabaseUrl()}`);
   });
 
   els.signUpButton.addEventListener("click", async () => {
@@ -701,7 +713,7 @@ function bindEvents() {
     const password = els.authPassword.value;
     const { error } = await state.supabase.auth.signUp({ email, password });
     if (error) {
-      alert(error.message);
+      alert(`${error.message}\n\nSupabase URL gebruikt door de app:\n${cleanSupabaseUrl()}`);
       return;
     }
     setSyncStatus("Account aangemaakt. Bevestig eventueel je e-mail en log daarna in.");
@@ -729,5 +741,6 @@ if ("serviceWorker" in navigator) {
 await loadRecords();
 populateFamilies();
 bindEvents();
+await loadSupabaseConfig();
 await initSupabase();
 render();
