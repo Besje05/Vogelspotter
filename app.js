@@ -1,4 +1,5 @@
 import { BIRDS } from "./data/birds.js";
+import { EXAMPLE_PHOTOS } from "./data/example-photos.js";
 
 const STORAGE_KEY = "vogelverzamelaar.records.v1";
 const DB_NAME = "vogelverzamelaar-db";
@@ -41,6 +42,9 @@ const els = {
   partnerPhotoBlock: document.querySelector("#partnerPhotoBlock"),
   partnerPhotoLabel: document.querySelector("#partnerPhotoLabel"),
   partnerPreview: document.querySelector("#partnerPreview"),
+  examplePhotoBlock: document.querySelector("#examplePhotoBlock"),
+  examplePreview: document.querySelector("#examplePreview"),
+  exampleCredit: document.querySelector("#exampleCredit"),
   deletePhoto: document.querySelector("#deletePhotoButton"),
   exportButton: document.querySelector("#exportButton"),
   importInput: document.querySelector("#importInput"),
@@ -209,6 +213,7 @@ function birdCard(bird) {
   }
   if (record.photo || record.photoPath) badges.append(badge("Foto", "photo"));
   if (state.partner && partnerRecordFor(bird.id).photoPath) badges.append(badge("Partnerfoto", "partner"));
+  if (EXAMPLE_PHOTOS[bird.id]) badges.append(badge("Voorbeeldfoto"));
   content.append(badges);
 
   const details = document.createElement("button");
@@ -268,6 +273,7 @@ async function openDialog(id) {
     els.partnerPhotoLabel.textContent = `Foto van ${state.partner.email}`;
     ensurePhotoUrl(partnerRecord).then((url) => showPartnerPreview(url)).catch(() => {});
   }
+  showExamplePhoto(EXAMPLE_PHOTOS[id]);
   els.dialog.showModal();
 }
 
@@ -291,6 +297,21 @@ function showPartnerPreview(photo) {
     els.partnerPreview.removeAttribute("src");
     els.partnerPhotoBlock.hidden = true;
   }
+}
+
+function showExamplePhoto(photo) {
+  if (!photo?.url) {
+    els.examplePhotoBlock.hidden = true;
+    els.examplePreview.removeAttribute("src");
+    return;
+  }
+
+  els.examplePreview.src = photo.url;
+  els.examplePhotoBlock.hidden = false;
+  els.exampleCredit.href = photo.sourceUrl;
+  els.exampleCredit.textContent = photo.artist
+    ? `Voorbeeldfoto: ${photo.artist} · ${photo.license}`
+    : `Voorbeeldfoto: Wikimedia Commons · ${photo.license}`;
 }
 
 function persistDialog() {

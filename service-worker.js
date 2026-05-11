@@ -1,10 +1,11 @@
-const CACHE_NAME = "vogelverzamelaar-v7";
+const CACHE_NAME = "vogelverzamelaar-v8";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./data/birds.js",
+  "./data/example-photos.js",
   "./manifest.webmanifest",
   "./icons/bird.svg",
   "./icons/icon-192.png",
