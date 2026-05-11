@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#28534a">
+    <title>Vogelverzamelaar Belgie</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/bird.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Belgische checklist</p>
+        <h1>Vogelverzamelaar</h1>
+      </div>
+      <button class="icon-button" id="installButton" type="button" hidden title="Installeer app" aria-label="Installeer app">
+        <span aria-hidden="true">+</span>
+      </button>
+    </header>
+
+    <main>
+      <section class="progress-panel" aria-labelledby="progressTitle">
+        <div>
+          <h2 id="progressTitle">Mijn collectie</h2>
+          <p><strong id="seenCount">0</strong> gezien van <strong id="totalCount">0</strong></p>
+        </div>
+        <div class="progress-ring" aria-hidden="true">
+          <span id="progressPercent">0%</span>
+        </div>
+      </section>
+
+      <section class="toolbar" aria-label="Zoeken en filteren">
+        <label class="search-box">
+          <span>Zoeken</span>
+          <input id="searchInput" type="search" placeholder="Naam, familie of Latijnse naam">
+        </label>
+
+        <div class="segmented" role="group" aria-label="Filter status">
+          <button class="active" data-filter="all" type="button">Alle</button>
+          <button data-filter="seen" type="button">Gezien</button>
+          <button data-filter="missing" type="button">Nog niet</button>
+          <button data-filter="photo" type="button">Foto</button>
+        </div>
+
+        <select id="familyFilter" aria-label="Filter familie">
+          <option value="">Alle families</option>
+        </select>
+      </section>
+
+      <section class="actions" aria-label="Back-up acties">
+        <button id="exportButton" type="button">Export</button>
+        <label class="file-action">
+          Import
+          <input id="importInput" type="file" accept="application/json">
+        </label>
+        <button id="resetButton" type="button">Wis demo-data</button>
+      </section>
+
+      <p class="source-note">
+        Soortenlijst: Avibase, Clements 2025 voor Belgie, laatst gewijzigd 2026-01-03. Je vinkjes, notities en foto's blijven lokaal in deze browser.
+      </p>
+
+      <section class="bird-list" id="birdList" aria-live="polite"></section>
+    </main>
+
+    <dialog id="birdDialog">
+      <form method="dialog" class="dialog-card">
+        <div class="dialog-header">
+          <div>
+            <p id="dialogFamily" class="eyebrow"></p>
+            <h2 id="dialogTitle"></h2>
+            <p id="dialogScientific"></p>
+          </div>
+          <button class="icon-button" value="close" type="submit" aria-label="Sluiten">x</button>
+        </div>
+
+        <label class="check-row">
+          <input id="dialogSeen" type="checkbox">
+          <span>Gezien</span>
+        </label>
+
+        <label>
+          Datum
+          <input id="dialogDate" type="date">
+        </label>
+
+        <label>
+          Plaats
+          <input id="dialogPlace" type="text" placeholder="Bijv. Zwin, tuin, vijver">
+        </label>
+
+        <label>
+          Notitie
+          <textarea id="dialogNote" rows="4" placeholder="Gedrag, omstandigheden, extra details"></textarea>
+        </label>
+
+        <label class="photo-picker">
+          Foto toevoegen
+          <input id="dialogPhoto" type="file" accept="image/*">
+        </label>
+        <img id="dialogPreview" alt="" hidden>
+
+        <menu>
+          <button id="deletePhotoButton" type="button">Verwijder foto</button>
+          <button class="primary" value="close" type="submit">Klaar</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
