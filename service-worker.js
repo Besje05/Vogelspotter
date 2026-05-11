@@ -1,9 +1,10 @@
-const CACHE_NAME = "vogelverzamelaar-v2";
+const CACHE_NAME = "vogelverzamelaar-v3";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./supabase-config.js",
   "./data/birds.js",
   "./manifest.webmanifest",
   "./icons/bird.svg",

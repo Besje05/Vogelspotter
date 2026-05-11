@@ -157,8 +157,8 @@ textarea {
 }
 
 .segmented {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   padding: 4px;
   border: 1px solid var(--line);
@@ -169,6 +169,7 @@ textarea {
 .segmented button,
 .actions button,
 .file-action {
+  flex: 1 0 88px;
   min-height: 42px;
   border: 0;
   border-radius: 6px;
@@ -281,6 +282,49 @@ textarea {
 .badge.photo {
   background: #edf3f8;
   color: var(--water);
+}
+
+.badge.partner {
+  background: #fff5dc;
+  color: #81601b;
+}
+
+.sync-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.sync-panel p:not(.eyebrow) {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.sync-form {
+  display: grid;
+  gap: 8px;
+}
+
+.sync-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.sync-buttons button,
+.sync-form > button {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfb;
+  color: var(--leaf);
+  font-weight: 800;
 }
 
 .details-button {

@@ -1,4 +1,5 @@
 import { BIRDS } from "./data/birds.js";
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./supabase-config.js";
 
 const STORAGE_KEY = "vogelverzamelaar.records.v1";
 const DB_NAME = "vogelverzamelaar-db";
@@ -10,7 +11,11 @@ const state = {
   query: "",
   family: "",
   activeBirdId: null,
-  deferredInstall: null
+  deferredInstall: null,
+  supabase: null,
+  session: null,
+  partner: null,
+  partnerRecords: {}
 };
 
 const els = {
@@ -35,7 +40,16 @@ const els = {
   exportButton: document.querySelector("#exportButton"),
   importInput: document.querySelector("#importInput"),
   resetButton: document.querySelector("#resetButton"),
-  installButton: document.querySelector("#installButton")
+  installButton: document.querySelector("#installButton"),
+  progressTitle: document.querySelector("#progressTitle"),
+  syncStatus: document.querySelector("#syncStatus"),
+  authForm: document.querySelector("#authForm"),
+  authEmail: document.querySelector("#authEmail"),
+  authPassword: document.querySelector("#authPassword"),
+  signUpButton: document.querySelector("#signUpButton"),
+  signOutButton: document.querySelector("#signOutButton"),
+  partnerForm: document.querySelector("#partnerForm"),
+  partnerEmail: document.querySelector("#partnerEmail")
 };
 
 function openDb() {
@@ -93,7 +107,12 @@ function recordFor(id) {
 function setRecord(id, patch) {
   state.records[id] = { ...recordFor(id), ...patch, id, updatedAt: new Date().toISOString() };
   saveRecord(id, state.records[id]).catch(() => alert("Opslaan lukte niet. Probeer opnieuw."));
+  syncRecord(id).catch(() => setSyncStatus("Lokaal opgeslagen, maar online sync lukte niet."));
   render();
+}
+
+function partnerRecordFor(id) {
+  return state.partnerRecords[id] || {};
 }
 
 function normalize(value) {
@@ -117,14 +136,19 @@ function filteredBirds() {
       state.filter === "all" ||
       (state.filter === "seen" && record.seen) ||
       (state.filter === "missing" && !record.seen) ||
-      (state.filter === "photo" && hasPhoto);
+      (state.filter === "photo" && hasPhoto) ||
+      (state.filter === "both" && record.seen && partnerRecordFor(bird.id).seen) ||
+      (state.filter === "only-me" && record.seen && !partnerRecordFor(bird.id).seen) ||
+      (state.filter === "only-partner" && !record.seen && partnerRecordFor(bird.id).seen);
     return matchesQuery && matchesFamily && matchesFilter;
   });
 }
 
 function updateProgress() {
   const seen = BIRDS.filter((bird) => recordFor(bird.id).seen).length;
+  const partnerSeen = BIRDS.filter((bird) => partnerRecordFor(bird.id).seen).length;
   const percentage = Math.round((seen / BIRDS.length) * 100);
+  els.progressTitle.textContent = state.partner ? `Mijn collectie · partner ${partnerSeen}` : "Mijn collectie";
   els.seenCount.textContent = seen;
   els.totalCount.textContent = BIRDS.length;
   els.percent.textContent = `${percentage}%`;
@@ -159,6 +183,9 @@ function birdCard(bird) {
   badges.className = "badges";
   if (bird.status) badges.append(badge(bird.status));
   if (record.seen) badges.append(badge(record.date ? `Gezien ${record.date}` : "Gezien"));
+  if (state.partner && partnerRecordFor(bird.id).seen) {
+    badges.append(badge(`${state.partner.email}: gezien`, "partner"));
+  }
   if (record.photo) badges.append(badge("Foto", "photo"));
   content.append(badges);
 
@@ -292,12 +319,209 @@ function importData(file) {
       state.records = payload.records || payload;
       await clearRecords();
       await Promise.all(Object.entries(state.records).map(([id, record]) => saveRecord(id, record)));
+      await syncAllLocalRecords();
       render();
     } catch {
       alert("Deze back-up kon niet gelezen worden.");
     }
   };
   reader.readAsText(file);
+}
+
+function hasSupabaseConfig() {
+  return SUPABASE_URL.startsWith("https://") && SUPABASE_ANON_KEY.length > 20;
+}
+
+function setSyncStatus(message) {
+  if (els.syncStatus) els.syncStatus.textContent = message;
+}
+
+function remoteFromRecord(id, record) {
+  return {
+    bird_id: id,
+    seen: Boolean(record.seen),
+    seen_date: record.date || null,
+    place: record.place || null,
+    note: record.note || null,
+    updated_at: record.updatedAt || new Date().toISOString()
+  };
+}
+
+function recordFromRemote(row, existing = {}) {
+  return {
+    ...existing,
+    id: row.bird_id,
+    seen: row.seen,
+    date: row.seen_date || "",
+    place: row.place || "",
+    note: row.note || "",
+    updatedAt: row.updated_at
+  };
+}
+
+async function initSupabase() {
+  if (!hasSupabaseConfig()) {
+    setSyncStatus("Supabase staat nog uit. Vul `supabase-config.js` in om online te delen.");
+    return;
+  }
+
+  try {
+    const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
+    state.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data } = await state.supabase.auth.getSession();
+    state.session = data.session;
+    await refreshAuthState();
+    state.supabase.auth.onAuthStateChange(async (_event, session) => {
+      state.session = session;
+      await refreshAuthState();
+    });
+  } catch {
+    setSyncStatus("Supabase kon niet laden. De app blijft lokaal werken.");
+  }
+}
+
+async function refreshAuthState() {
+  const user = state.session?.user;
+  els.signOutButton.hidden = !user;
+  els.partnerForm.hidden = !user;
+
+  if (!user) {
+    state.partner = null;
+    state.partnerRecords = {};
+    setSyncStatus("Niet ingelogd. Log in om online te syncen en een partner te koppelen.");
+    render();
+    return;
+  }
+
+  await upsertProfile();
+  await loadRemoteRecords();
+  await loadPartner();
+  await syncAllLocalRecords();
+  setSyncStatus(state.partner
+    ? `Ingelogd als ${user.email}. Partner gekoppeld: ${state.partner.email}.`
+    : `Ingelogd als ${user.email}. Voeg je partner toe via e-mail.`);
+  render();
+}
+
+async function upsertProfile() {
+  const user = state.session?.user;
+  if (!state.supabase || !user) return;
+  const { error } = await state.supabase
+    .from("profiles")
+    .upsert({ id: user.id, email: user.email }, { onConflict: "id" });
+  if (error) throw error;
+}
+
+async function loadRemoteRecords() {
+  const user = state.session?.user;
+  if (!state.supabase || !user) return;
+
+  const { data, error } = await state.supabase
+    .from("bird_records")
+    .select("bird_id, seen, seen_date, place, note, updated_at")
+    .eq("user_id", user.id);
+  if (error) throw error;
+
+  for (const row of data || []) {
+    const local = recordFor(row.bird_id);
+    const remoteIsNewer = !local.updatedAt || new Date(row.updated_at) > new Date(local.updatedAt);
+    if (remoteIsNewer) {
+      state.records[row.bird_id] = recordFromRemote(row, local);
+      await saveRecord(row.bird_id, state.records[row.bird_id]);
+    }
+  }
+}
+
+async function syncRecord(id) {
+  const user = state.session?.user;
+  if (!state.supabase || !user) return;
+  const { error } = await state.supabase
+    .from("bird_records")
+    .upsert({ ...remoteFromRecord(id, recordFor(id)), user_id: user.id }, { onConflict: "user_id,bird_id" });
+  if (error) throw error;
+}
+
+async function syncAllLocalRecords() {
+  const user = state.session?.user;
+  if (!state.supabase || !user) return;
+  const rows = Object.entries(state.records)
+    .filter(([, record]) => record.seen || record.date || record.place || record.note)
+    .map(([id, record]) => ({ ...remoteFromRecord(id, record), user_id: user.id }));
+  if (!rows.length) return;
+  const { error } = await state.supabase
+    .from("bird_records")
+    .upsert(rows, { onConflict: "user_id,bird_id" });
+  if (error) throw error;
+}
+
+async function loadPartner() {
+  const user = state.session?.user;
+  if (!state.supabase || !user) return;
+
+  const { data: links, error: linkError } = await state.supabase
+    .from("bird_partners")
+    .select("owner_id, partner_id")
+    .or(`owner_id.eq.${user.id},partner_id.eq.${user.id}`)
+    .limit(1);
+  if (linkError) throw linkError;
+
+  const link = links?.[0];
+  if (!link) {
+    state.partner = null;
+    state.partnerRecords = {};
+    return;
+  }
+
+  const partnerId = link.owner_id === user.id ? link.partner_id : link.owner_id;
+  const { data: profile, error: profileError } = await state.supabase
+    .from("profiles")
+    .select("id, email")
+    .eq("id", partnerId)
+    .single();
+  if (profileError) throw profileError;
+
+  state.partner = profile;
+  await loadPartnerRecords();
+}
+
+async function loadPartnerRecords() {
+  if (!state.supabase || !state.partner) return;
+  const { data, error } = await state.supabase
+    .from("bird_records")
+    .select("bird_id, seen, seen_date, place, note, updated_at")
+    .eq("user_id", state.partner.id);
+  if (error) throw error;
+  state.partnerRecords = Object.fromEntries((data || []).map((row) => [row.bird_id, recordFromRemote(row)]));
+}
+
+async function addPartnerByEmail(email) {
+  const user = state.session?.user;
+  if (!state.supabase || !user) return;
+  const normalizedEmail = email.trim().toLowerCase();
+  if (normalizedEmail === user.email.toLowerCase()) {
+    alert("Je kunt jezelf niet als partner koppelen.");
+    return;
+  }
+
+  const { data: partner, error: profileError } = await state.supabase
+    .from("profiles")
+    .select("id, email")
+    .eq("email", normalizedEmail)
+    .single();
+  if (profileError || !partner) {
+    alert("Partner niet gevonden. Laat de ander eerst een account maken en inloggen.");
+    return;
+  }
+
+  const { error } = await state.supabase
+    .from("bird_partners")
+    .upsert({ owner_id: user.id, partner_id: partner.id }, { onConflict: "owner_id,partner_id" });
+  if (error) throw error;
+
+  state.partner = partner;
+  await loadPartnerRecords();
+  setSyncStatus(`Partner gekoppeld: ${partner.email}.`);
+  render();
 }
 
 function bindEvents() {
@@ -369,6 +593,47 @@ function bindEvents() {
     state.deferredInstall = null;
     els.installButton.hidden = true;
   });
+
+  els.authForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!state.supabase) {
+      alert("Vul eerst je Supabase URL en anon key in `supabase-config.js` in.");
+      return;
+    }
+    const email = els.authEmail.value.trim();
+    const password = els.authPassword.value;
+    const { error } = await state.supabase.auth.signInWithPassword({ email, password });
+    if (error) alert(error.message);
+  });
+
+  els.signUpButton.addEventListener("click", async () => {
+    if (!state.supabase) {
+      alert("Vul eerst je Supabase URL en anon key in `supabase-config.js` in.");
+      return;
+    }
+    const email = els.authEmail.value.trim();
+    const password = els.authPassword.value;
+    const { error } = await state.supabase.auth.signUp({ email, password });
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    setSyncStatus("Account aangemaakt. Bevestig eventueel je e-mail en log daarna in.");
+  });
+
+  els.signOutButton.addEventListener("click", async () => {
+    if (state.supabase) await state.supabase.auth.signOut();
+  });
+
+  els.partnerForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      await addPartnerByEmail(els.partnerEmail.value);
+      els.partnerEmail.value = "";
+    } catch {
+      alert("Partner koppelen lukte niet. Controleer de e-mail en Supabase-tabellen.");
+    }
+  });
 }
 
 if ("serviceWorker" in navigator) {
@@ -378,4 +643,5 @@ if ("serviceWorker" in navigator) {
 await loadRecords();
 populateFamilies();
 bindEvents();
+await initSupabase();
 render();

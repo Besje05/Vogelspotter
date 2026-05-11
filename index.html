@@ -43,6 +43,9 @@
           <button data-filter="seen" type="button">Gezien</button>
           <button data-filter="missing" type="button">Nog niet</button>
           <button data-filter="photo" type="button">Foto</button>
+          <button data-filter="both" type="button">Allebei</button>
+          <button data-filter="only-me" type="button">Alleen ik</button>
+          <button data-filter="only-partner" type="button">Partner</button>
         </div>
 
         <select id="familyFilter" aria-label="Filter familie">
@@ -59,8 +62,31 @@
         <button id="resetButton" type="button">Wis demo-data</button>
       </section>
 
+      <section class="sync-panel" aria-labelledby="syncTitle">
+        <div>
+          <p class="eyebrow">Samen delen</p>
+          <h2 id="syncTitle">Online sync</h2>
+          <p id="syncStatus">Nog niet gekoppeld. Vul straks je Supabase keys in om met 2 accounts te delen.</p>
+        </div>
+
+        <form id="authForm" class="sync-form">
+          <input id="authEmail" type="email" autocomplete="email" placeholder="E-mail">
+          <input id="authPassword" type="password" autocomplete="current-password" placeholder="Wachtwoord">
+          <div class="sync-buttons">
+            <button id="signInButton" type="submit">Login</button>
+            <button id="signUpButton" type="button">Account maken</button>
+            <button id="signOutButton" type="button" hidden>Uitloggen</button>
+          </div>
+        </form>
+
+        <form id="partnerForm" class="sync-form" hidden>
+          <input id="partnerEmail" type="email" autocomplete="email" placeholder="E-mail van partner">
+          <button type="submit">Partner koppelen</button>
+        </form>
+      </section>
+
       <p class="source-note">
-        Soortenlijst: Avibase, Clements 2025 voor Belgie, laatst gewijzigd 2026-01-03. Je vinkjes, notities en foto's blijven lokaal in deze browser.
+        Soortenlijst: Avibase, Clements 2025 voor Belgie, laatst gewijzigd 2026-01-03. Zonder login blijven je gegevens lokaal; met Supabase-login syncen vinkjes, datum, plaats en notitie online.
       </p>
 
       <section class="bird-list" id="birdList" aria-live="polite"></section>
