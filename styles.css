@@ -400,6 +400,25 @@ dialog::backdrop {
   background: #edf3f8;
 }
 
+.partner-photo {
+  display: grid;
+  gap: 7px;
+}
+
+.partner-photo p {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.partner-photo img {
+  width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #fff5dc;
+}
+
 menu {
   display: flex;
   justify-content: space-between;

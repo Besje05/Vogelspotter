@@ -4,6 +4,7 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./supabase-config.js";
 const STORAGE_KEY = "vogelverzamelaar.records.v1";
 const DB_NAME = "vogelverzamelaar-db";
 const STORE_NAME = "records";
+const PHOTO_BUCKET = "bird-photos";
 
 const state = {
   records: {},
@@ -36,6 +37,9 @@ const els = {
   dialogNote: document.querySelector("#dialogNote"),
   dialogPhoto: document.querySelector("#dialogPhoto"),
   dialogPreview: document.querySelector("#dialogPreview"),
+  partnerPhotoBlock: document.querySelector("#partnerPhotoBlock"),
+  partnerPhotoLabel: document.querySelector("#partnerPhotoLabel"),
+  partnerPreview: document.querySelector("#partnerPreview"),
   deletePhoto: document.querySelector("#deletePhotoButton"),
   exportButton: document.querySelector("#exportButton"),
   importInput: document.querySelector("#importInput"),
@@ -115,6 +119,22 @@ function partnerRecordFor(id) {
   return state.partnerRecords[id] || {};
 }
 
+async function signedPhotoUrl(photoPath) {
+  if (!state.supabase || !photoPath) return "";
+  const { data, error } = await state.supabase
+    .storage
+    .from(PHOTO_BUCKET)
+    .createSignedUrl(photoPath, 60 * 60);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+async function ensurePhotoUrl(record) {
+  if (!record?.photoPath || record.photoUrl) return record?.photoUrl || "";
+  record.photoUrl = await signedPhotoUrl(record.photoPath);
+  return record.photoUrl;
+}
+
 function normalize(value) {
   return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
@@ -123,7 +143,7 @@ function filteredBirds() {
   const query = normalize(state.query.trim());
   return BIRDS.filter((bird) => {
     const record = recordFor(bird.id);
-    const hasPhoto = Boolean(record.photo);
+    const hasPhoto = Boolean(record.photo || record.photoPath);
     const matchesQuery = !query || normalize([
       bird.dutchName,
       bird.englishName,
@@ -186,7 +206,8 @@ function birdCard(bird) {
   if (state.partner && partnerRecordFor(bird.id).seen) {
     badges.append(badge(`${state.partner.email}: gezien`, "partner"));
   }
-  if (record.photo) badges.append(badge("Foto", "photo"));
+  if (record.photo || record.photoPath) badges.append(badge("Foto", "photo"));
+  if (state.partner && partnerRecordFor(bird.id).photoPath) badges.append(badge("Partnerfoto", "partner"));
   content.append(badges);
 
   const details = document.createElement("button");
@@ -223,10 +244,11 @@ function render() {
   els.list.append(fragment);
 }
 
-function openDialog(id) {
+async function openDialog(id) {
   const bird = BIRDS.find((item) => item.id === id);
   if (!bird) return;
   const record = recordFor(id);
+  const partnerRecord = partnerRecordFor(id);
   state.activeBirdId = id;
   els.dialogFamily.textContent = `${bird.order} · ${bird.family}`;
   els.dialogTitle.textContent = bird.dutchName || bird.englishName;
@@ -236,7 +258,15 @@ function openDialog(id) {
   els.dialogPlace.value = record.place || "";
   els.dialogNote.value = record.note || "";
   els.dialogPhoto.value = "";
-  showPreview(record.photo);
+  showPreview(record.photo || record.photoUrl);
+  if (record.photoPath) {
+    ensurePhotoUrl(record).then((url) => showPreview(url)).catch(() => {});
+  }
+  showPartnerPreview("");
+  if (state.partner && partnerRecord.photoPath) {
+    els.partnerPhotoLabel.textContent = `Foto van ${state.partner.email}`;
+    ensurePhotoUrl(partnerRecord).then((url) => showPartnerPreview(url)).catch(() => {});
+  }
   els.dialog.showModal();
 }
 
@@ -249,6 +279,16 @@ function showPreview(photo) {
     els.dialogPreview.removeAttribute("src");
     els.dialogPreview.hidden = true;
     els.deletePhoto.hidden = true;
+  }
+}
+
+function showPartnerPreview(photo) {
+  if (photo) {
+    els.partnerPreview.src = photo;
+    els.partnerPhotoBlock.hidden = false;
+  } else {
+    els.partnerPreview.removeAttribute("src");
+    els.partnerPhotoBlock.hidden = true;
   }
 }
 
@@ -294,6 +334,33 @@ async function resizePhoto(file) {
   canvas.height = Math.round(image.height * scale);
   canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
   return canvas.toDataURL("image/jpeg", 0.82);
+}
+
+async function dataUrlToBlob(dataUrl) {
+  return fetch(dataUrl).then((response) => response.blob());
+}
+
+async function uploadPhoto(id, dataUrl) {
+  const user = state.session?.user;
+  if (!state.supabase || !user) return {};
+  const blob = await dataUrlToBlob(dataUrl);
+  const path = `${user.id}/${id}.jpg`;
+  const { error } = await state.supabase
+    .storage
+    .from(PHOTO_BUCKET)
+    .upload(path, blob, {
+      cacheControl: "3600",
+      contentType: "image/jpeg",
+      upsert: true
+    });
+  if (error) throw error;
+  const photoUrl = await signedPhotoUrl(path);
+  return { photoPath: path, photoUrl };
+}
+
+async function removeOnlinePhoto(photoPath) {
+  if (!state.supabase || !photoPath) return;
+  await state.supabase.storage.from(PHOTO_BUCKET).remove([photoPath]);
 }
 
 function exportData() {
@@ -343,6 +410,7 @@ function remoteFromRecord(id, record) {
     seen_date: record.date || null,
     place: record.place || null,
     note: record.note || null,
+    photo_path: record.photoPath || null,
     updated_at: record.updatedAt || new Date().toISOString()
   };
 }
@@ -355,6 +423,7 @@ function recordFromRemote(row, existing = {}) {
     date: row.seen_date || "",
     place: row.place || "",
     note: row.note || "",
+    photoPath: row.photo_path || "",
     updatedAt: row.updated_at
   };
 }
@@ -418,7 +487,7 @@ async function loadRemoteRecords() {
 
   const { data, error } = await state.supabase
     .from("bird_records")
-    .select("bird_id, seen, seen_date, place, note, updated_at")
+    .select("bird_id, seen, seen_date, place, note, photo_path, updated_at")
     .eq("user_id", user.id);
   if (error) throw error;
 
@@ -445,7 +514,7 @@ async function syncAllLocalRecords() {
   const user = state.session?.user;
   if (!state.supabase || !user) return;
   const rows = Object.entries(state.records)
-    .filter(([, record]) => record.seen || record.date || record.place || record.note)
+    .filter(([, record]) => record.seen || record.date || record.place || record.note || record.photoPath)
     .map(([id, record]) => ({ ...remoteFromRecord(id, record), user_id: user.id }));
   if (!rows.length) return;
   const { error } = await state.supabase
@@ -488,7 +557,7 @@ async function loadPartnerRecords() {
   if (!state.supabase || !state.partner) return;
   const { data, error } = await state.supabase
     .from("bird_records")
-    .select("bird_id, seen, seen_date, place, note, updated_at")
+    .select("bird_id, seen, seen_date, place, note, photo_path, updated_at")
     .eq("user_id", state.partner.id);
   if (error) throw error;
   state.partnerRecords = Object.fromEntries((data || []).map((row) => [row.bird_id, recordFromRemote(row)]));
@@ -553,15 +622,28 @@ function bindEvents() {
     const file = event.target.files?.[0];
     if (!file || !state.activeBirdId) return;
     const photo = await resizePhoto(file);
-    setRecord(state.activeBirdId, { photo, seen: true, date: els.dialogDate.value || new Date().toISOString().slice(0, 10) });
+    let onlinePhoto = {};
+    try {
+      onlinePhoto = await uploadPhoto(state.activeBirdId, photo);
+      if (onlinePhoto.photoPath) setSyncStatus("Foto online opgeslagen.");
+    } catch {
+      setSyncStatus("Foto lokaal opgeslagen, maar online upload lukte niet.");
+    }
+    setRecord(state.activeBirdId, {
+      photo,
+      ...onlinePhoto,
+      seen: true,
+      date: els.dialogDate.value || new Date().toISOString().slice(0, 10)
+    });
     showPreview(photo);
     els.dialogSeen.checked = true;
     if (!els.dialogDate.value) els.dialogDate.value = new Date().toISOString().slice(0, 10);
   });
 
-  els.deletePhoto.addEventListener("click", () => {
+  els.deletePhoto.addEventListener("click", async () => {
     if (!state.activeBirdId) return;
-    setRecord(state.activeBirdId, { photo: "" });
+    await removeOnlinePhoto(recordFor(state.activeBirdId).photoPath);
+    setRecord(state.activeBirdId, { photo: "", photoPath: "", photoUrl: "" });
     showPreview("");
   });
 

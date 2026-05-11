@@ -36,7 +36,9 @@ export const SUPABASE_ANON_KEY = "jouw-public-anon-key";
 8. Beide gebruikers maken in de app een account aan en loggen in.
 9. Een van jullie vult de e-mail van de ander in bij `Partner koppelen`.
 
-De gedeelde online sync bewaart vinkjes, datum, plaats en notitie. Foto's blijven in deze versie lokaal op het toestel.
+De gedeelde online sync bewaart vinkjes, datum, plaats, notitie en foto's. Foto's gaan naar een private Supabase Storage bucket `bird-photos` en zijn alleen zichtbaar voor de eigenaar en gekoppelde partner.
+
+Als je eerder al een oudere versie van `supabase-schema.sql` hebt uitgevoerd, voer de nieuwe versie opnieuw uit in de SQL Editor. Het script voegt ontbrekende kolommen, bucket en policies toe zonder je bestaande records te wissen.
 
 ## GitHub Pages
 
