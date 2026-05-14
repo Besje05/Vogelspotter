@@ -35,6 +35,7 @@ const els = {
   dialogScientific: document.querySelector("#dialogScientific"),
   dialogSeen: document.querySelector("#dialogSeen"),
   dialogDate: document.querySelector("#dialogDate"),
+  dialogTime: document.querySelector("#dialogTime"),
   dialogPlace: document.querySelector("#dialogPlace"),
   dialogNote: document.querySelector("#dialogNote"),
   dialogPhoto: document.querySelector("#dialogPhoto"),
@@ -124,6 +125,28 @@ function partnerRecordFor(id) {
   return state.partnerRecords[id] || {};
 }
 
+function brusselsNow() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Brussels",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return {
+    date: `${values.year}-${values.month}-${values.day}`,
+    time: `${values.hour}:${values.minute}`
+  };
+}
+
+function seenLabel(record) {
+  if (!record.date && !record.time) return "Gezien";
+  return `Gezien ${[record.date, record.time].filter(Boolean).join(" ")}`;
+}
+
 async function signedPhotoUrl(photoPath) {
   if (!state.supabase || !photoPath) return "";
   const { data, error } = await state.supabase
@@ -192,9 +215,12 @@ function birdCard(bird) {
   check.textContent = "✓";
   check.ariaLabel = `${bird.dutchName} afvinken`;
   check.addEventListener("click", () => {
+    const now = brusselsNow();
+    const nextSeen = !record.seen;
     setRecord(bird.id, {
-      seen: !record.seen,
-      date: record.date || new Date().toISOString().slice(0, 10)
+      seen: nextSeen,
+      date: nextSeen ? record.date || now.date : record.date || "",
+      time: nextSeen ? record.time || now.time : record.time || ""
     });
   });
 
@@ -208,7 +234,7 @@ function birdCard(bird) {
   const badges = document.createElement("div");
   badges.className = "badges";
   if (bird.status) badges.append(badge(bird.status));
-  if (record.seen) badges.append(badge(record.date ? `Gezien ${record.date}` : "Gezien"));
+  if (record.seen) badges.append(badge(seenLabel(record)));
   if (state.partner && partnerRecordFor(bird.id).seen) {
     badges.append(badge(`${state.partner.email}: gezien`, "partner"));
   }
@@ -271,6 +297,7 @@ async function openDialog(id) {
   els.dialogScientific.textContent = `${bird.scientificName} · ${bird.englishName}`;
   els.dialogSeen.checked = Boolean(record.seen);
   els.dialogDate.value = record.date || "";
+  els.dialogTime.value = record.time || "";
   els.dialogPlace.value = record.place || "";
   els.dialogNote.value = record.note || "";
   els.dialogPhoto.value = "";
@@ -330,6 +357,7 @@ function persistDialog() {
   setRecord(state.activeBirdId, {
     seen: els.dialogSeen.checked,
     date: els.dialogDate.value,
+    time: els.dialogTime.value,
     place: els.dialogPlace.value.trim(),
     note: els.dialogNote.value.trim()
   });
@@ -460,6 +488,7 @@ function remoteFromRecord(id, record) {
     bird_id: id,
     seen: Boolean(record.seen),
     seen_date: record.date || null,
+    seen_time: record.time || null,
     place: record.place || null,
     note: record.note || null,
     photo_path: record.photoPath || null,
@@ -473,6 +502,7 @@ function recordFromRemote(row, existing = {}) {
     id: row.bird_id,
     seen: row.seen,
     date: row.seen_date || "",
+    time: row.seen_time || "",
     place: row.place || "",
     note: row.note || "",
     photoPath: row.photo_path || "",
@@ -539,7 +569,7 @@ async function loadRemoteRecords() {
 
   const { data, error } = await state.supabase
     .from("bird_records")
-    .select("bird_id, seen, seen_date, place, note, photo_path, updated_at")
+    .select("bird_id, seen, seen_date, seen_time, place, note, photo_path, updated_at")
     .eq("user_id", user.id);
   if (error) throw error;
 
@@ -566,7 +596,7 @@ async function syncAllLocalRecords() {
   const user = state.session?.user;
   if (!state.supabase || !user) return;
   const rows = Object.entries(state.records)
-    .filter(([, record]) => record.seen || record.date || record.place || record.note || record.photoPath)
+    .filter(([, record]) => record.seen || record.date || record.time || record.place || record.note || record.photoPath)
     .map(([id, record]) => ({ ...remoteFromRecord(id, record), user_id: user.id }));
   if (!rows.length) return;
   const { error } = await state.supabase
@@ -609,7 +639,7 @@ async function loadPartnerRecords() {
   if (!state.supabase || !state.partner) return;
   const { data, error } = await state.supabase
     .from("bird_records")
-    .select("bird_id, seen, seen_date, place, note, photo_path, updated_at")
+    .select("bird_id, seen, seen_date, seen_time, place, note, photo_path, updated_at")
     .eq("user_id", state.partner.id);
   if (error) throw error;
   state.partnerRecords = Object.fromEntries((data || []).map((row) => [row.bird_id, recordFromRemote(row)]));
@@ -665,7 +695,7 @@ function bindEvents() {
     });
   });
 
-  [els.dialogSeen, els.dialogDate, els.dialogPlace, els.dialogNote].forEach((input) => {
+  [els.dialogSeen, els.dialogDate, els.dialogTime, els.dialogPlace, els.dialogNote].forEach((input) => {
     input.addEventListener("change", persistDialog);
   });
   els.dialogNote.addEventListener("input", persistDialog);
@@ -681,15 +711,18 @@ function bindEvents() {
     } catch {
       setSyncStatus("Foto lokaal opgeslagen, maar online upload lukte niet.");
     }
+    const now = brusselsNow();
     setRecord(state.activeBirdId, {
       photo,
       ...onlinePhoto,
       seen: true,
-      date: els.dialogDate.value || new Date().toISOString().slice(0, 10)
+      date: els.dialogDate.value || now.date,
+      time: els.dialogTime.value || now.time
     });
     showPreview(photo);
     els.dialogSeen.checked = true;
-    if (!els.dialogDate.value) els.dialogDate.value = new Date().toISOString().slice(0, 10);
+    if (!els.dialogDate.value) els.dialogDate.value = now.date;
+    if (!els.dialogTime.value) els.dialogTime.value = now.time;
   });
 
   els.deletePhoto.addEventListener("click", async () => {
