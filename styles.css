@@ -49,6 +49,22 @@ button {
   backdrop-filter: blur(18px);
 }
 
+.brand {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 12px;
+}
+
+.brand-logo {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 1px 5px rgba(23, 33, 31, 0.12);
+}
+
 h1,
 h2,
 p {
