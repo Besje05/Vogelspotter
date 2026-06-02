@@ -51,6 +51,8 @@ const els = {
   importInput: document.querySelector("#importInput"),
   resetButton: document.querySelector("#resetButton"),
   installButton: document.querySelector("#installButton"),
+  logoButton: document.querySelector("#logoButton"),
+  logoDialog: document.querySelector("#logoDialog"),
   progressTitle: document.querySelector("#progressTitle"),
   syncStatus: document.querySelector("#syncStatus"),
   authForm: document.querySelector("#authForm"),
@@ -759,6 +761,10 @@ function bindEvents() {
     await state.deferredInstall.userChoice;
     state.deferredInstall = null;
     els.installButton.hidden = true;
+  });
+
+  els.logoButton.addEventListener("click", () => {
+    els.logoDialog.showModal();
   });
 
   els.authForm.addEventListener("submit", async (event) => {

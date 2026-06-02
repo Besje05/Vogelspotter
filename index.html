@@ -13,7 +13,9 @@
   <body>
     <header class="app-header">
       <div class="brand">
-        <img class="brand-logo" src="icons/icon-192.png" alt="" aria-hidden="true">
+        <button class="brand-logo-button" id="logoButton" type="button" aria-label="Logo vergroten">
+          <img class="brand-logo" src="icons/icon-192.png" alt="">
+        </button>
         <div>
           <p class="eyebrow">Belgische checklist</p>
           <h1>Vogelverzamelaar</h1>
@@ -150,6 +152,13 @@
           <button id="deletePhotoButton" type="button">Verwijder foto</button>
           <button class="primary" value="close" type="submit">Klaar</button>
         </menu>
+      </form>
+    </dialog>
+
+    <dialog id="logoDialog">
+      <form method="dialog" class="logo-dialog-card">
+        <button class="icon-button" value="close" type="submit" aria-label="Sluiten">x</button>
+        <img src="icons/icon-512.png" alt="Vogelverzamelaar logo">
       </form>
     </dialog>
 

@@ -56,13 +56,29 @@ button {
   gap: 12px;
 }
 
-.brand-logo {
+.brand-logo-button {
+  display: grid;
   width: 46px;
   height: 46px;
   flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  padding: 0;
+}
+
+.brand-logo {
+  width: 46px;
+  height: 46px;
   border-radius: 8px;
   object-fit: cover;
   box-shadow: 0 1px 5px rgba(23, 33, 31, 0.12);
+}
+
+.brand-logo-button:focus-visible {
+  outline: 3px solid rgba(90, 134, 168, 0.5);
+  outline-offset: 3px;
 }
 
 h1,
@@ -372,6 +388,27 @@ dialog {
 
 dialog::backdrop {
   background: rgba(15, 28, 24, 0.45);
+}
+
+.logo-dialog-card {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.logo-dialog-card .icon-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.logo-dialog-card img {
+  width: min(78vw, 420px);
+  height: auto;
+  border-radius: 10px;
 }
 
 .dialog-card {
