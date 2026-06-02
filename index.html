@@ -8,6 +8,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icons/bird.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -56,7 +57,20 @@
         <select id="familyFilter" aria-label="Filter familie">
           <option value="">Alle families</option>
         </select>
+
+        <select id="rarityFilter" aria-label="Filter zeldzaamheid">
+          <option value="">Alle zeldzaamheid</option>
+          <option value="common">Algemeen / regulier</option>
+          <option value="rare">Zeldzaam / accidenteel</option>
+          <option value="uncertain">Onzekere herkomst</option>
+          <option value="threatened">Bedreigd / gevoelig</option>
+        </select>
       </section>
+
+      <nav class="view-tabs" aria-label="Weergave">
+        <button class="active" data-view="list" type="button">Lijst</button>
+        <button data-view="map" type="button">Kaart</button>
+      </nav>
 
       <section class="actions" aria-label="Back-up acties">
         <button id="exportButton" type="button">Export</button>
@@ -95,6 +109,10 @@
       </p>
 
       <section class="bird-list" id="birdList" aria-live="polite"></section>
+      <section class="map-view" id="mapView" hidden>
+        <div id="observationsMap" class="observations-map"></div>
+        <p id="mapEmpty" class="empty" hidden>Voeg coördinaten toe aan waarnemingen om ze op de kaart te zien.</p>
+      </section>
     </main>
 
     <dialog id="birdDialog">
@@ -127,6 +145,20 @@
           Plaats
           <input id="dialogPlace" type="text" placeholder="Bijv. Zwin, tuin, vijver">
         </label>
+
+        <div class="coordinate-grid">
+          <label>
+            Breedtegraad
+            <input id="dialogLatitude" type="number" inputmode="decimal" step="0.000001" min="49.4" max="51.6" placeholder="Bijv. 51.349">
+          </label>
+
+          <label>
+            Lengtegraad
+            <input id="dialogLongitude" type="number" inputmode="decimal" step="0.000001" min="2.5" max="6.5" placeholder="Bijv. 3.288">
+          </label>
+        </div>
+
+        <button id="useLocationButton" class="secondary-action" type="button">Gebruik huidige locatie</button>
 
         <label>
           Notitie
@@ -162,6 +194,7 @@
       </form>
     </dialog>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module" src="app.js"></script>
   </body>
 </html>

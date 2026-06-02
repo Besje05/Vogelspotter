@@ -11,6 +11,8 @@ create table if not exists public.bird_records (
   seen_date date,
   seen_time time,
   place text,
+  latitude double precision,
+  longitude double precision,
   note text,
   photo_path text,
   updated_at timestamptz not null default now(),
@@ -22,6 +24,12 @@ add column if not exists photo_path text;
 
 alter table public.bird_records
 add column if not exists seen_time time;
+
+alter table public.bird_records
+add column if not exists latitude double precision;
+
+alter table public.bird_records
+add column if not exists longitude double precision;
 
 create table if not exists public.bird_partners (
   owner_id uuid not null references auth.users(id) on delete cascade,

@@ -11,20 +11,28 @@ let supabaseAnonKey = "";
 const state = {
   records: {},
   filter: "all",
+  view: "list",
   query: "",
   family: "",
+  rarity: "",
   activeBirdId: null,
   deferredInstall: null,
   supabase: null,
   session: null,
   partner: null,
-  partnerRecords: {}
+  partnerRecords: {},
+  map: null,
+  markerLayer: null
 };
 
 const els = {
   list: document.querySelector("#birdList"),
+  mapView: document.querySelector("#mapView"),
+  observationsMap: document.querySelector("#observationsMap"),
+  mapEmpty: document.querySelector("#mapEmpty"),
   search: document.querySelector("#searchInput"),
   family: document.querySelector("#familyFilter"),
+  rarity: document.querySelector("#rarityFilter"),
   seenCount: document.querySelector("#seenCount"),
   totalCount: document.querySelector("#totalCount"),
   percent: document.querySelector("#progressPercent"),
@@ -37,6 +45,9 @@ const els = {
   dialogDate: document.querySelector("#dialogDate"),
   dialogTime: document.querySelector("#dialogTime"),
   dialogPlace: document.querySelector("#dialogPlace"),
+  dialogLatitude: document.querySelector("#dialogLatitude"),
+  dialogLongitude: document.querySelector("#dialogLongitude"),
+  useLocationButton: document.querySelector("#useLocationButton"),
   dialogNote: document.querySelector("#dialogNote"),
   dialogPhoto: document.querySelector("#dialogPhoto"),
   dialogPreview: document.querySelector("#dialogPreview"),
@@ -149,6 +160,28 @@ function seenLabel(record) {
   return `Gezien ${[record.date, record.time].filter(Boolean).join(" ")}`;
 }
 
+function rarityForStatus(status = "") {
+  const value = status.toLowerCase();
+  if (value.includes("uncertain origin")) return "uncertain";
+  if (
+    value.includes("vulnerable") ||
+    value.includes("endangered") ||
+    value.includes("near-threatened") ||
+    value.includes("critically")
+  ) return "threatened";
+  if (value.includes("rare") || value.includes("accidental")) return "rare";
+  return "common";
+}
+
+function coordinateValue(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function hasCoordinates(record) {
+  return coordinateValue(record.latitude) !== null && coordinateValue(record.longitude) !== null;
+}
+
 async function signedPhotoUrl(photoPath) {
   if (!state.supabase || !photoPath) return "";
   const { data, error } = await state.supabase
@@ -182,6 +215,7 @@ function filteredBirds() {
       bird.status
     ].join(" ")).includes(query);
     const matchesFamily = !state.family || bird.family === state.family;
+    const matchesRarity = !state.rarity || rarityForStatus(bird.status) === state.rarity;
     const matchesFilter =
       state.filter === "all" ||
       (state.filter === "seen" && record.seen) ||
@@ -190,7 +224,7 @@ function filteredBirds() {
       (state.filter === "both" && record.seen && partnerRecordFor(bird.id).seen) ||
       (state.filter === "only-me" && record.seen && !partnerRecordFor(bird.id).seen) ||
       (state.filter === "only-partner" && !record.seen && partnerRecordFor(bird.id).seen);
-    return matchesQuery && matchesFamily && matchesFilter;
+    return matchesQuery && matchesFamily && matchesRarity && matchesFilter;
   });
 }
 
@@ -275,17 +309,71 @@ function badge(text, extraClass = "") {
 function render() {
   updateProgress();
   const birds = filteredBirds();
+  els.list.hidden = state.view !== "list";
+  els.mapView.hidden = state.view !== "map";
   els.list.replaceChildren();
   if (!birds.length) {
     const empty = document.createElement("p");
     empty.className = "empty";
     empty.textContent = "Geen vogels gevonden met deze filters.";
     els.list.append(empty);
+    if (state.view === "map") renderMap();
     return;
   }
   const fragment = document.createDocumentFragment();
   birds.forEach((bird) => fragment.append(birdCard(bird)));
   els.list.append(fragment);
+  if (state.view === "map") renderMap();
+}
+
+function initializeMap() {
+  if (state.map || !window.L) return;
+  state.map = window.L.map(els.observationsMap).setView([50.64, 4.67], 8);
+  window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(state.map);
+  state.markerLayer = window.L.layerGroup().addTo(state.map);
+}
+
+function renderMap() {
+  initializeMap();
+  if (!state.map || !state.markerLayer) {
+    els.mapEmpty.hidden = false;
+    els.mapEmpty.textContent = "De kaart kon niet geladen worden. Controleer je internetverbinding.";
+    return;
+  }
+
+  const mappedBirds = filteredBirds().filter((bird) => {
+    const record = recordFor(bird.id);
+    return record.seen && hasCoordinates(record);
+  });
+
+  state.markerLayer.clearLayers();
+  els.mapEmpty.hidden = mappedBirds.length > 0;
+
+  const bounds = [];
+  for (const bird of mappedBirds) {
+    const record = recordFor(bird.id);
+    const lat = coordinateValue(record.latitude);
+    const lng = coordinateValue(record.longitude);
+    const marker = window.L.marker([lat, lng]).bindPopup(`
+      <div class="map-popup">
+        <strong>${bird.dutchName || bird.englishName}</strong>
+        <span>${seenLabel(record)}</span>
+        <span>${record.place || "Geen plaatsnaam"}</span>
+      </div>
+    `);
+    marker.addTo(state.markerLayer);
+    bounds.push([lat, lng]);
+  }
+
+  setTimeout(() => state.map.invalidateSize(), 0);
+  if (bounds.length) {
+    state.map.fitBounds(bounds, { padding: [24, 24], maxZoom: 11 });
+  } else {
+    state.map.setView([50.64, 4.67], 8);
+  }
 }
 
 async function openDialog(id) {
@@ -301,6 +389,8 @@ async function openDialog(id) {
   els.dialogDate.value = record.date || "";
   els.dialogTime.value = record.time || "";
   els.dialogPlace.value = record.place || "";
+  els.dialogLatitude.value = record.latitude ?? "";
+  els.dialogLongitude.value = record.longitude ?? "";
   els.dialogNote.value = record.note || "";
   els.dialogPhoto.value = "";
   showPreview(record.photo || record.photoUrl);
@@ -361,6 +451,8 @@ function persistDialog() {
     date: els.dialogDate.value,
     time: els.dialogTime.value,
     place: els.dialogPlace.value.trim(),
+    latitude: els.dialogLatitude.value,
+    longitude: els.dialogLongitude.value,
     note: els.dialogNote.value.trim()
   });
 }
@@ -492,6 +584,8 @@ function remoteFromRecord(id, record) {
     seen_date: record.date || null,
     seen_time: record.time || null,
     place: record.place || null,
+    latitude: coordinateValue(record.latitude),
+    longitude: coordinateValue(record.longitude),
     note: record.note || null,
     photo_path: record.photoPath || null,
     updated_at: record.updatedAt || new Date().toISOString()
@@ -506,6 +600,8 @@ function recordFromRemote(row, existing = {}) {
     date: row.seen_date || "",
     time: row.seen_time || "",
     place: row.place || "",
+    latitude: row.latitude ?? "",
+    longitude: row.longitude ?? "",
     note: row.note || "",
     photoPath: row.photo_path || "",
     updatedAt: row.updated_at
@@ -571,7 +667,7 @@ async function loadRemoteRecords() {
 
   const { data, error } = await state.supabase
     .from("bird_records")
-    .select("bird_id, seen, seen_date, seen_time, place, note, photo_path, updated_at")
+    .select("bird_id, seen, seen_date, seen_time, place, latitude, longitude, note, photo_path, updated_at")
     .eq("user_id", user.id);
   if (error) throw error;
 
@@ -598,7 +694,7 @@ async function syncAllLocalRecords() {
   const user = state.session?.user;
   if (!state.supabase || !user) return;
   const rows = Object.entries(state.records)
-    .filter(([, record]) => record.seen || record.date || record.time || record.place || record.note || record.photoPath)
+    .filter(([, record]) => record.seen || record.date || record.time || record.place || record.latitude || record.longitude || record.note || record.photoPath)
     .map(([id, record]) => ({ ...remoteFromRecord(id, record), user_id: user.id }));
   if (!rows.length) return;
   const { error } = await state.supabase
@@ -641,7 +737,7 @@ async function loadPartnerRecords() {
   if (!state.supabase || !state.partner) return;
   const { data, error } = await state.supabase
     .from("bird_records")
-    .select("bird_id, seen, seen_date, seen_time, place, note, photo_path, updated_at")
+    .select("bird_id, seen, seen_date, seen_time, place, latitude, longitude, note, photo_path, updated_at")
     .eq("user_id", state.partner.id);
   if (error) throw error;
   state.partnerRecords = Object.fromEntries((data || []).map((row) => [row.bird_id, recordFromRemote(row)]));
@@ -688,6 +784,20 @@ function bindEvents() {
     render();
   });
 
+  els.rarity.addEventListener("change", (event) => {
+    state.rarity = event.target.value;
+    render();
+  });
+
+  document.querySelectorAll(".view-tabs button").forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelector(".view-tabs button.active").classList.remove("active");
+      button.classList.add("active");
+      state.view = button.dataset.view;
+      render();
+    });
+  });
+
   document.querySelectorAll(".segmented button").forEach((button) => {
     button.addEventListener("click", () => {
       document.querySelector(".segmented button.active").classList.remove("active");
@@ -697,10 +807,27 @@ function bindEvents() {
     });
   });
 
-  [els.dialogSeen, els.dialogDate, els.dialogTime, els.dialogPlace, els.dialogNote].forEach((input) => {
+  [els.dialogSeen, els.dialogDate, els.dialogTime, els.dialogPlace, els.dialogLatitude, els.dialogLongitude, els.dialogNote].forEach((input) => {
     input.addEventListener("change", persistDialog);
   });
   els.dialogNote.addEventListener("input", persistDialog);
+
+  els.useLocationButton.addEventListener("click", () => {
+    if (!navigator.geolocation) {
+      alert("GPS-locatie wordt niet ondersteund door deze browser.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        els.dialogLatitude.value = position.coords.latitude.toFixed(6);
+        els.dialogLongitude.value = position.coords.longitude.toFixed(6);
+        persistDialog();
+      },
+      () => alert("Locatie ophalen lukte niet. Controleer de toestemming voor locatie."),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  });
 
   els.dialogPhoto.addEventListener("change", async (event) => {
     const file = event.target.files?.[0];

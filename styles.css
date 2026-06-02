@@ -234,6 +234,32 @@ textarea {
   margin-top: 12px;
 }
 
+.view-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  margin-top: 12px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #eef4f1;
+}
+
+.view-tabs button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.view-tabs button.active {
+  background: var(--panel);
+  color: var(--leaf);
+  box-shadow: 0 1px 5px rgba(23, 33, 31, 0.08);
+}
+
 .actions button,
 .file-action {
   display: grid;
@@ -260,6 +286,19 @@ textarea {
 .bird-list {
   display: grid;
   gap: 8px;
+}
+
+.map-view {
+  margin-top: 12px;
+}
+
+.observations-map {
+  width: 100%;
+  min-height: 62vh;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  overflow: hidden;
 }
 
 .bird-card {
@@ -458,6 +497,35 @@ dialog::backdrop {
   height: 22px;
 }
 
+.coordinate-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.secondary-action {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfb;
+  color: var(--leaf);
+  font-weight: 800;
+}
+
+.map-popup {
+  display: grid;
+  gap: 3px;
+}
+
+.map-popup strong {
+  color: var(--ink);
+}
+
+.map-popup span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 .photo-picker {
   border: 1px dashed var(--line);
   border-radius: 8px;
@@ -545,7 +613,7 @@ menu .primary {
 
 @media (min-width: 720px) {
   .toolbar {
-    grid-template-columns: 1.4fr 1fr 1fr;
+    grid-template-columns: 1.4fr 1fr 1fr 1fr;
     align-items: end;
   }
 

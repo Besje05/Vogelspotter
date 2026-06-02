@@ -1,4 +1,4 @@
-const CACHE_NAME = "vogelverzamelaar-v14";
+const CACHE_NAME = "vogelverzamelaar-v16";
 const ASSETS = [
   "./",
   "./index.html",
@@ -30,6 +30,7 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  if (new URL(event.request.url).origin !== self.location.origin) return;
 
   if (new URL(event.request.url).pathname.endsWith("/supabase-config.js")) {
     event.respondWith(fetch(event.request));
