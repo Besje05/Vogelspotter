@@ -170,6 +170,17 @@
           <input id="dialogPhoto" type="file" accept="image/*">
         </label>
         <img id="dialogPreview" alt="" hidden>
+
+        <label class="photo-picker">
+          Geluid toevoegen
+          <input id="dialogAudio" type="file" accept="audio/*">
+        </label>
+        <audio id="dialogAudioPlayer" controls hidden></audio>
+        <div id="partnerAudioBlock" class="partner-audio" hidden>
+          <p id="partnerAudioLabel"></p>
+          <audio id="partnerAudioPlayer" controls></audio>
+        </div>
+
         <div id="partnerPhotoBlock" class="partner-photo" hidden>
           <p id="partnerPhotoLabel"></p>
           <img id="partnerPreview" alt="">
@@ -182,6 +193,7 @@
 
         <menu>
           <button id="deletePhotoButton" type="button">Verwijder foto</button>
+          <button id="deleteAudioButton" type="button">Verwijder geluid</button>
           <button class="primary" value="close" type="submit">Klaar</button>
         </menu>
       </form>

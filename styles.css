@@ -546,16 +546,22 @@ dialog::backdrop {
 }
 
 .partner-photo,
+.partner-audio,
 .example-photo {
   display: grid;
   gap: 7px;
 }
 
 .partner-photo p,
+.partner-audio p,
 .example-photo p {
   color: var(--muted);
   font-size: 0.82rem;
   font-weight: 800;
+}
+
+audio {
+  width: 100%;
 }
 
 .partner-photo img,

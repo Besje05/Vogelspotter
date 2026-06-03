@@ -5,6 +5,7 @@ const STORAGE_KEY = "vogelverzamelaar.records.v1";
 const DB_NAME = "vogelverzamelaar-db";
 const STORE_NAME = "records";
 const PHOTO_BUCKET = "bird-photos";
+const AUDIO_BUCKET = "bird-audio";
 let supabaseUrl = "";
 let supabaseAnonKey = "";
 
@@ -51,13 +52,19 @@ const els = {
   dialogNote: document.querySelector("#dialogNote"),
   dialogPhoto: document.querySelector("#dialogPhoto"),
   dialogPreview: document.querySelector("#dialogPreview"),
+  dialogAudio: document.querySelector("#dialogAudio"),
+  dialogAudioPlayer: document.querySelector("#dialogAudioPlayer"),
   partnerPhotoBlock: document.querySelector("#partnerPhotoBlock"),
   partnerPhotoLabel: document.querySelector("#partnerPhotoLabel"),
   partnerPreview: document.querySelector("#partnerPreview"),
+  partnerAudioBlock: document.querySelector("#partnerAudioBlock"),
+  partnerAudioLabel: document.querySelector("#partnerAudioLabel"),
+  partnerAudioPlayer: document.querySelector("#partnerAudioPlayer"),
   examplePhotoBlock: document.querySelector("#examplePhotoBlock"),
   examplePreview: document.querySelector("#examplePreview"),
   exampleCredit: document.querySelector("#exampleCredit"),
   deletePhoto: document.querySelector("#deletePhotoButton"),
+  deleteAudio: document.querySelector("#deleteAudioButton"),
   exportButton: document.querySelector("#exportButton"),
   importInput: document.querySelector("#importInput"),
   resetButton: document.querySelector("#resetButton"),
@@ -192,10 +199,26 @@ async function signedPhotoUrl(photoPath) {
   return data.signedUrl;
 }
 
+async function signedAudioUrl(audioPath) {
+  if (!state.supabase || !audioPath) return "";
+  const { data, error } = await state.supabase
+    .storage
+    .from(AUDIO_BUCKET)
+    .createSignedUrl(audioPath, 60 * 60);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
 async function ensurePhotoUrl(record) {
   if (!record?.photoPath || record.photoUrl) return record?.photoUrl || "";
   record.photoUrl = await signedPhotoUrl(record.photoPath);
   return record.photoUrl;
+}
+
+async function ensureAudioUrl(record) {
+  if (!record?.audioPath || record.audioUrl) return record?.audioUrl || "";
+  record.audioUrl = await signedAudioUrl(record.audioPath);
+  return record.audioUrl;
 }
 
 function normalize(value) {
@@ -275,7 +298,9 @@ function birdCard(bird) {
     badges.append(badge(`${state.partner.email}: gezien`, "partner"));
   }
   if (record.photo || record.photoPath) badges.append(badge("Foto", "photo"));
+  if (record.audio || record.audioPath) badges.append(badge("Geluid", "audio"));
   if (state.partner && partnerRecordFor(bird.id).photoPath) badges.append(badge("Partnerfoto", "partner"));
+  if (state.partner && partnerRecordFor(bird.id).audioPath) badges.append(badge("Partnergeluid", "partner"));
   if (EXAMPLE_PHOTOS[bird.id]) badges.append(badge("Voorbeeldfoto"));
   content.append(badges);
 
